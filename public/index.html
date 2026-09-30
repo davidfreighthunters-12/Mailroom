@@ -39,6 +39,8 @@ label{display:block;font-size:13px;color:var(--mute);margin:10px 0 4px}
 .prev .bd{padding:18px 22px;line-height:1.6}.prev h3{margin:0 0 8px}.prev a.cta{display:inline-block;background:#1c6e8c;color:#fff;padding:9px 16px;border-radius:5px;text-decoration:none;font-family:system-ui}
 .toast{position:fixed;bottom:calc(20px + env(safe-area-inset-bottom,0px));left:50%;transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:10px 18px;border-radius:8px;font-weight:500;display:none;z-index:9}
 .empty{color:var(--mute);padding:18px 0;text-align:center}
+.tb{display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-bottom:6px}.tb select{width:auto}.tb .btn.sm{min-width:36px}
+.editor{min-height:220px;background:var(--bg);border:1px solid var(--line);border-radius:6px;padding:10px 12px;font-family:Arial,Helvetica,sans-serif;font-size:15px;line-height:1.6;overflow:auto}.editor:focus{outline:2px solid var(--acc);outline-offset:1px}.editor a{color:var(--acc)}
 @media(max-width:760px){.app{grid-template-columns:1fr}nav{position:static;height:auto;display:flex;gap:4px;overflow-x:auto;padding:10px;border-right:0;border-bottom:1px solid var(--line)}nav .logo{padding:8px 10px}nav button{width:auto;white-space:nowrap}nav button.on{box-shadow:inset 0 -3px 0 var(--acc)}main{padding:20px 16px}.g2{grid-template-columns:1fr}}
 </style>
 </head>
@@ -90,7 +92,9 @@ return `<h1>New campaign</h1><p class="sub">Write, preview, then send. Use {{nam
 <label>Campaign name</label><input id="cn" value="${esc(d.name)}" placeholder="September newsletter">
 <label>Subject line</label><input id="cs" value="${esc(d.subject)}">
 <label>Send to</label><select id="cg">${segs().map(s=>`<option value="${esc(s)}" ${s===d.seg?'selected':''}>${s==='all'?'Everyone':esc(s)} (${segCount(s)})</option>`).join('')}</select>
-<label>Email body (HTML)</label><textarea id="cb">${esc(d.body)}</textarea>
+<label>Email body</label>
+<div class="tb"><select id="ffont" title="Font"><option value="">Font</option><option value="Arial, Helvetica, sans-serif">Arial</option><option value="Georgia, serif">Georgia</option><option value="Verdana, Geneva, sans-serif">Verdana</option></select><button type="button" class="btn ghost sm" data-fmt="bold" title="Bold"><b>B</b></button><button type="button" class="btn ghost sm" data-fmt="italic" title="Italic"><i>I</i></button><button type="button" class="btn ghost sm" data-fmt="underline" title="Underline"><u>U</u></button><button type="button" class="btn ghost sm" data-fmt="insertUnorderedList" title="Bullet list">• List</button><button type="button" class="btn ghost sm" data-fmt="link" title="Add link">Link</button><button type="button" class="btn ghost sm" data-fmt="unlink" title="Remove link">Unlink</button></div>
+<div id="cb" class="editor" contenteditable="true">${d.body}</div>
 <div class="row" style="margin-top:14px"><button class="btn ghost" data-a="save">Save draft</button><button class="btn" data-a="send">Send campaign</button></div>
 </div><div><h2>Preview</h2><div class="prev" id="pv"></div></div></div>`}
 function aud(){
@@ -115,7 +119,7 @@ function render(){
 $('main').innerHTML={dash,camps,comp,aud}[view]();
 if(view==='comp')pv();
 }
-function readDraft(){if(view!=='comp')return;draft.name=$('cn').value;draft.subject=$('cs').value;draft.seg=$('cg').value;draft.body=$('cb').value}
+function readDraft(){if(view!=='comp')return;draft.name=$('cn').value;draft.subject=$('cs').value;draft.seg=$('cg').value;draft.body=$('cb').innerHTML}
 $('main').addEventListener('input',e=>{if(view==='comp'&&e.target.id!=='tpl'){readDraft();pv()}});
 $('main').addEventListener('change',e=>{if(e.target.id==='tpl'&&TPL[e.target.value]){readDraft();Object.assign(draft,TPL[e.target.value]);render()}else if(view==='comp'){readDraft();pv()}});
 function importCsv(text){
@@ -133,6 +137,27 @@ const r=new FileReader();
 r.onload=()=>importCsv(String(r.result));
 r.onerror=()=>toast('Could not read that file');
 r.readAsText(f)});
+let rng=null;
+document.addEventListener('selectionchange',()=>{const ed=$('cb'),s=getSelection();if(ed&&s.rangeCount&&ed.contains(s.anchorNode))rng=s.getRangeAt(0).cloneRange()});
+function fmt(cmd,val){
+const ed=$('cb');if(!ed)return;
+let url,txt;
+if(cmd==='link'){
+url=prompt('Paste the link (for example https://yourwebsite.com)');if(!url)return;
+url=url.trim();if(!/^(https?:|mailto:)/i.test(url))url='https://'+url;
+if(!rng||rng.collapsed){txt=prompt('Text to show for the link');if(!txt)return}}
+ed.focus();
+if(rng){const s=getSelection();s.removeAllRanges();s.addRange(rng)}
+document.execCommand('styleWithCSS',false,true);
+if(cmd==='link'){
+if(txt)document.execCommand('insertHTML',false,`<a href="${esc(url)}">${esc(txt)}</a>`);
+else document.execCommand('createLink',false,url)}
+else document.execCommand(cmd,false,val||null);
+readDraft();pv()}
+$('main').addEventListener('mousedown',e=>{if(e.target.closest('.tb button'))e.preventDefault()});
+$('main').addEventListener('click',e=>{const b=e.target.closest('[data-fmt]');if(b)fmt(b.dataset.fmt)});
+$('main').addEventListener('change',e=>{if(e.target.id==='ffont'&&e.target.value){fmt('fontName',e.target.value);e.target.value=''}});
+$('main').addEventListener('paste',e=>{if(e.target.id==='cb'){e.preventDefault();document.execCommand('insertText',false,(e.clipboardData||window.clipboardData).getData('text/plain'))}});
 const nid=()=>Math.max(0,...S.camps.map(c=>c.id))+1;
 let PW='';const getPw=()=>PW||(PW=prompt('Admin password')||'');
 $('main').addEventListener('click',async e=>{
