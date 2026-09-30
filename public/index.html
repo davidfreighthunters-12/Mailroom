@@ -99,9 +99,17 @@ return `<h1>Audience</h1><p class="sub">${S.subs.length} subscribers.</p>
 <label>Upload a .csv file (columns: email,name,tag)</label><input id="afile" type="file" accept=".csv,text/csv,text/plain">
 <label>Or paste a CSV (email,name,tag – one per line)</label><textarea id="acsv" style="min-height:70px" placeholder="jo@example.com,Jo,leads"></textarea><button class="btn ghost" style="margin-top:8px" data-a="csv">Import CSV</button></div>
 <div class="card scroll" style="margin-top:14px">${S.subs.length?`<table><tr><th>Email</th><th>Name</th><th>Tag</th><th></th></tr>${S.subs.map((s,i)=>`<tr><td>${esc(s.e)}</td><td>${esc(s.n)}</td><td><span class="tag">${esc(s.t)}</span></td><td><button class="btn ghost sm" data-a="rm" data-id="${i}">Remove</button></td></tr>`).join('')}</table>`:'<div class="empty">No subscribers yet. Add one above.</div>'}</div>`}
+const toHtml=text=>{
+if(/<\s*(p|br|div|h[1-6]|ul|ol|li|table|a)\b/i.test(text))return text;
+const e=s=>s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+const link=s=>s.replace(/(https?:\/\/[^\s<]+)/g,'<a href="$1">$1</a>');
+return text.replace(/\r\n?/g,'\n').trim().split(/\n{2,}/).map(block=>{
+const lines=block.split('\n').map(l=>l.trim()).filter(Boolean);
+if(lines.length&&lines.every(l=>/^[-•*]\s+/.test(l)))return '<ul>'+lines.map(l=>`<li>${link(e(l.replace(/^[-•*]\s+/,'')))}</li>`).join('')+'</ul>';
+return `<p>${lines.map(l=>link(e(l))).join('<br>')}</p>`}).join('\n')};
 function pv(){
 const el=$('pv');if(!el)return;const s=S.subs.find(x=>draft.seg==='all'||x.t===draft.seg);
-el.innerHTML=`<div class="hd"><b>Subject:</b> ${esc(merge(draft.subject,s))}<br>To: ${s?esc(s.e):'preview@example.com'}</div><div class="bd">${merge(draft.body,s).replace(/<script[\s\S]*?<\/script>/gi,'')}</div>`}
+el.innerHTML=`<div class="hd"><b>Subject:</b> ${esc(merge(draft.subject,s))}<br>To: ${s?esc(s.e):'preview@example.com'}</div><div class="bd"><div style="font-family:Arial,Helvetica,sans-serif;font-size:15px;line-height:1.6;color:#222">${merge(toHtml(draft.body),s).replace(/<script[\s\S]*?<\/script>/gi,'')}</div></div>`}
 function render(){
 [...$('nav').querySelectorAll('button')].forEach(b=>b.classList.toggle('on',b.dataset.k===view));
 $('main').innerHTML={dash,camps,comp,aud}[view]();
