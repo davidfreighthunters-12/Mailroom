@@ -39,20 +39,6 @@ label{display:block;font-size:13px;color:var(--mute);margin:10px 0 4px}
 .prev .bd{padding:18px 22px;line-height:1.6}.prev h3{margin:0 0 8px}.prev a.cta{display:inline-block;background:#1c6e8c;color:#fff;padding:9px 16px;border-radius:5px;text-decoration:none;font-family:system-ui}
 .toast{position:fixed;bottom:calc(20px + env(safe-area-inset-bottom,0px));left:50%;transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:10px 18px;border-radius:8px;font-weight:500;display:none;z-index:9}
 .empty{color:var(--mute);padding:18px 0;text-align:center}
-.tb{display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-bottom:6px}.tb select{width:auto}.tb .btn.sm{min-width:36px}
-.editor{min-height:220px;background:var(--bg);border:1px solid var(--line);border-radius:6px;padding:10px 12px;font-family:Arial,Helvetica,sans-serif;font-size:15px;line-height:1.6;overflow:auto}.editor:focus{outline:2px solid var(--acc);outline-offset:1px}.editor a{color:var(--acc)}
-.editor:empty::before{content:attr(data-ph);color:var(--mute);pointer-events:none}
-.hint{font-size:12px;color:var(--mute);margin-top:6px}
-.btn.on{background:var(--acc);color:var(--acc-ink);border-color:var(--acc)}
-.tb .sep{width:1px;height:22px;background:var(--line);margin:0 2px}
-.tb .btn.sm{display:inline-flex;align-items:center;justify-content:center}
-#pal{display:none;flex-basis:100%;gap:8px;flex-wrap:wrap;align-items:center;padding:8px;background:var(--bg);border:1px solid var(--line);border-radius:6px}
-.sw{width:26px;height:26px;border-radius:50%;border:1px solid var(--line);cursor:pointer;padding:0;display:inline-flex;align-items:center;justify-content:center;font-size:13px;color:var(--ink);margin:0;background:var(--panel);transition:transform .12s}
-.sw:hover{transform:scale(1.18)}
-.sw.cust{position:relative}.sw.cust input{position:absolute;opacity:0;width:0;height:0;padding:0;border:0}
-.chips{display:flex;gap:8px;flex-wrap:wrap}
-.dev{display:flex;gap:6px}
-.prev{transition:max-width .2s}.prev.phone{max-width:340px;margin:0 auto}
 @media(max-width:760px){.app{grid-template-columns:1fr}nav{position:static;height:auto;display:flex;gap:4px;overflow-x:auto;padding:10px;border-right:0;border-bottom:1px solid var(--line)}nav .logo{padding:8px 10px}nav button{width:auto;white-space:nowrap}nav button.on{box-shadow:inset 0 -3px 0 var(--acc)}main{padding:20px 16px}.g2{grid-template-columns:1fr}}
 </style>
 </head>
@@ -74,7 +60,6 @@ const $=id=>document.getElementById(id);
 const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 function toast(m){const t=$('toast');t.textContent=m;t.style.display='block';clearTimeout(toast.h);toast.h=setTimeout(()=>t.style.display='none',2200)}
 const TPL={
-blank:{subject:'',body:''},
 newsletter:{subject:'This month at {{company}}',body:'<h3>Hi {{name}},</h3>\n<p>Here is what we shipped this month and what is coming next.</p>\n<ul><li>Feature one</li><li>Feature two</li></ul>\n<p><a class="cta" href="#">Read the full update</a></p>'},
 promo:{subject:'{{name}}, 20% off until Friday',body:'<h3>A little thank-you, {{name}}</h3>\n<p>Use code <b>THANKS20</b> at checkout for 20% off your next order.</p>\n<p><a class="cta" href="#">Shop now</a></p>'},
 welcome:{subject:'Welcome aboard, {{name}}',body:'<h3>Welcome, {{name}}!</h3>\n<p>Thanks for signing up. Here is how to get started in three minutes.</p>\n<p><a class="cta" href="#">Start here</a></p>'}};
@@ -101,105 +86,67 @@ function comp(){
 const d=draft;
 return `<h1>New campaign</h1><p class="sub">Write, preview, then send. Use {{name}} to personalize.</p>
 <div class="grid g2"><div class="card">
-<label>Start from a template</label><div class="chips"><button type="button" class="btn ghost sm" data-tpl="blank">Blank</button><button type="button" class="btn ghost sm" data-tpl="newsletter">Newsletter</button><button type="button" class="btn ghost sm" data-tpl="promo">Promotion</button><button type="button" class="btn ghost sm" data-tpl="welcome">Welcome</button></div>
+<label>Start from a template</label><select id="tpl"><option value="">Choose…</option><option value="newsletter">Newsletter</option><option value="promo">Promotion</option><option value="welcome">Welcome</option></select>
 <label>Campaign name</label><input id="cn" value="${esc(d.name)}" placeholder="September newsletter">
 <label>Subject line</label><input id="cs" value="${esc(d.subject)}">
 <label>Send to</label><select id="cg">${segs().map(s=>`<option value="${esc(s)}" ${s===d.seg?'selected':''}>${s==='all'?'Everyone':esc(s)} (${segCount(s)})</option>`).join('')}</select>
-<label>Email body</label>
-<div class="tb"><select id="ffont" title="Font"><option value="">Font</option><option value="Arial, Helvetica, sans-serif">Arial</option><option value="Verdana, Geneva, sans-serif">Verdana</option><option value="Tahoma, Geneva, sans-serif">Tahoma</option><option value="'Trebuchet MS', Helvetica, sans-serif">Trebuchet MS</option><option value="Georgia, serif">Georgia</option><option value="'Times New Roman', Times, serif">Times New Roman</option><option value="'Palatino Linotype', Palatino, serif">Palatino</option><option value="'Courier New', Courier, monospace">Courier New</option></select><select id="fsize" title="Size"><option value="">Size</option><option value="2">Small</option><option value="3">Normal</option><option value="4">Large</option><option value="5">X-Large</option><option value="6">Huge</option></select><span class="sep"></span><button type="button" class="btn ghost sm" data-fmt="bold" title="Bold"><b>B</b></button><button type="button" class="btn ghost sm" data-fmt="italic" title="Italic"><i>I</i></button><button type="button" class="btn ghost sm" data-fmt="underline" title="Underline"><u>U</u></button><button type="button" class="btn ghost sm" data-fmt="forePal" title="Text color"><span style="border-bottom:3px solid #c0392b;line-height:1">A</span></button><button type="button" class="btn ghost sm" data-fmt="hilitePal" title="Highlight color"><span style="background:#fff3b0;color:#222;padding:0 3px;border-radius:2px">ab</span></button><span class="sep"></span><button type="button" class="btn ghost sm" data-fmt="justifyLeft" title="Align left"><svg width="14" height="12" viewBox="0 0 14 12"><path d="M0 1h14M0 4h9M0 7h14M0 10h9" stroke="currentColor" stroke-width="1.5" fill="none"/></svg></button><button type="button" class="btn ghost sm" data-fmt="justifyCenter" title="Center"><svg width="14" height="12" viewBox="0 0 14 12"><path d="M0 1h14M3 4h8M0 7h14M3 10h8" stroke="currentColor" stroke-width="1.5" fill="none"/></svg></button><button type="button" class="btn ghost sm" data-fmt="justifyRight" title="Align right"><svg width="14" height="12" viewBox="0 0 14 12"><path d="M0 1h14M5 4h9M0 7h14M5 10h9" stroke="currentColor" stroke-width="1.5" fill="none"/></svg></button><button type="button" class="btn ghost sm" data-fmt="insertUnorderedList" title="Bullet list">&bull; List</button><span class="sep"></span><button type="button" class="btn ghost sm" data-fmt="link" title="Add link">Link</button><button type="button" class="btn ghost sm" data-fmt="unlink" title="Remove link">Unlink</button><button type="button" class="btn ghost sm" data-fmt="insertText" title="Insert first name" data-val="{{name}}">{{name}}</button><span class="sep"></span><button type="button" class="btn ghost sm" data-fmt="undo" title="Undo">&#8630;</button><button type="button" class="btn ghost sm" data-fmt="redo" title="Redo">&#8631;</button><button type="button" class="btn ghost sm" data-fmt="removeFormat" title="Clear formatting">Clear</button><div id="pal"></div></div>
-<div id="cb" class="editor" contenteditable="true" data-ph="Start typing your email. Select text to change its font, size or color.">${d.body}</div>
-<div class="hint" id="cnt"></div>
+<label>Email body (HTML)</label><textarea id="cb">${esc(d.body)}</textarea>
 <div class="row" style="margin-top:14px"><button class="btn ghost" data-a="save">Save draft</button><button class="btn" data-a="send">Send campaign</button></div>
-</div><div><div class="row" style="align-items:center"><h2 style="margin:0">Preview</h2><div class="dev" style="flex:none;min-width:0"><button type="button" class="btn ghost sm${phone?'':' on'}" data-dev="desktop">Desktop</button><button type="button" class="btn ghost sm${phone?' on':''}" data-dev="phone">Phone</button></div></div><div class="prev${phone?' phone':''}" id="pv" style="margin-top:8px"></div></div></div>`}
+</div><div><h2>Preview</h2><div class="prev" id="pv"></div></div></div>`}
 function aud(){
 return `<h1>Audience</h1><p class="sub">${S.subs.length} subscribers.</p>
 <div class="card"><h2>Add subscribers</h2><div class="row"><div><label>Email</label><input id="ae" type="email" placeholder="name@example.com"></div><div><label>First name</label><input id="an"></div><div><label>Tag</label><input id="at" placeholder="customers"></div><button class="btn" data-a="add">Add</button></div>
-<label>Upload a .csv file (columns: email,name,tag)</label><input id="afile" type="file" accept=".csv,text/csv,text/plain">
+<label>Upload any .csv file (needs an email column)</label><input id="afile" type="file" accept=".csv,.txt,text/csv,text/plain">
 <label>Or paste a CSV (email,name,tag – one per line)</label><textarea id="acsv" style="min-height:70px" placeholder="jo@example.com,Jo,leads"></textarea><button class="btn ghost" style="margin-top:8px" data-a="csv">Import CSV</button></div>
 <div class="card scroll" style="margin-top:14px">${S.subs.length?`<table><tr><th>Email</th><th>Name</th><th>Tag</th><th></th></tr>${S.subs.map((s,i)=>`<tr><td>${esc(s.e)}</td><td>${esc(s.n)}</td><td><span class="tag">${esc(s.t)}</span></td><td><button class="btn ghost sm" data-a="rm" data-id="${i}">Remove</button></td></tr>`).join('')}</table>`:'<div class="empty">No subscribers yet. Add one above.</div>'}</div>`}
-const toHtml=text=>{
-if(/<\s*(p|br|div|h[1-6]|ul|ol|li|table|a)\b/i.test(text))return text;
-const e=s=>s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
-const link=s=>s.replace(/(https?:\/\/[^\s<]+)/g,'<a href="$1">$1</a>');
-return text.replace(/\r\n?/g,'\n').trim().split(/\n{2,}/).map(block=>{
-const lines=block.split('\n').map(l=>l.trim()).filter(Boolean);
-if(lines.length&&lines.every(l=>/^[-•*]\s+/.test(l)))return '<ul>'+lines.map(l=>`<li>${link(e(l.replace(/^[-•*]\s+/,'')))}</li>`).join('')+'</ul>';
-return `<p>${lines.map(l=>link(e(l))).join('<br>')}</p>`}).join('\n')};
 function pv(){
-const cn=$('cnt'),ed=$('cb');if(cn&&ed){const t=ed.innerText.trim();cn.textContent=(t.match(/\S+/g)||[]).length+' words · '+t.length+' characters'}
 const el=$('pv');if(!el)return;const s=S.subs.find(x=>draft.seg==='all'||x.t===draft.seg);
-el.innerHTML=`<div class="hd"><b>Subject:</b> ${esc(merge(draft.subject,s))}<br>To: ${s?esc(s.e):'preview@example.com'}</div><div class="bd"><div style="font-family:Arial,Helvetica,sans-serif;font-size:15px;line-height:1.6;color:#222">${merge(toHtml(draft.body),s).replace(/<script[\s\S]*?<\/script>/gi,'')}</div></div>`}
+el.innerHTML=`<div class="hd"><b>Subject:</b> ${esc(merge(draft.subject,s))}<br>To: ${s?esc(s.e):'preview@example.com'}</div><div class="bd">${merge(draft.body,s).replace(/<script[\s\S]*?<\/script>/gi,'')}</div>`}
 function render(){
 [...$('nav').querySelectorAll('button')].forEach(b=>b.classList.toggle('on',b.dataset.k===view));
 $('main').innerHTML={dash,camps,comp,aud}[view]();
 if(view==='comp')pv();
 }
-function readDraft(){if(view!=='comp')return;draft.name=$('cn').value;draft.subject=$('cs').value;draft.seg=$('cg').value;draft.body=$('cb').innerHTML}
-$('main').addEventListener('input',e=>{if(view==='comp'&&e.target.id!=='tpl'){readDraft();pv()}});
-$('main').addEventListener('change',e=>{if(e.target.id==='tpl'&&TPL[e.target.value]){readDraft();Object.assign(draft,TPL[e.target.value]);render()}else if(view==='comp'){readDraft();pv()}});
+function parseCsv(text){
+text=text.replace(/^\uFEFF/,'');
+const first=text.split(/\r?\n/)[0]||'';
+const d=[',',';','\t','|'].map(c=>[c,first.split(c).length]).sort((a,b)=>b[1]-a[1])[0][0];
+const rows=[];let row=[],cur='',q=false;
+for(let i=0;i<text.length;i++){const c=text[i];
+if(q){if(c==='"'){if(text[i+1]==='"'){cur+='"';i++}else q=false}else cur+=c}
+else if(c==='"')q=true;
+else if(c===d){row.push(cur);cur=''}
+else if(c==='\n'||c==='\r'){if(c==='\r'&&text[i+1]==='\n')i++;row.push(cur);rows.push(row);row=[];cur=''}
+else cur+=c}
+row.push(cur);rows.push(row);
+return rows.map(r=>r.map(x=>x.trim())).filter(r=>r.some(x=>x))}
 function importCsv(text){
-let n=0,dup=0;
-text.replace(/^\uFEFF/,'').split(/\r?\n/).forEach(l=>{
-const [em,nm,tg]=l.split(',').map(x=>(x||'').trim().replace(/^"|"$/g,''));
-if(!/^\S+@\S+\.\S+$/.test(em))return;
-if(S.subs.some(s=>s.e===em)){dup++;return}
+const re=/^\S+@\S+\.\S+$/,rows=parseCsv(text);
+if(!rows.length)return toast('That file is empty');
+let ei=-1,ni=-1,ti=-1,start=0;const h=rows[0];
+if(!h.some(x=>re.test(x))){start=1;
+ei=h.findIndex(x=>/e-?mail/i.test(x));
+ni=h.findIndex(x=>/first/i.test(x));
+if(ni<0)ni=h.findIndex(x=>/^(full\s*)?name$/i.test(x));
+if(ni<0)ni=h.findIndex(x=>/name/i.test(x));
+ti=h.findIndex(x=>/tag|group|segment|list|label|categor/i.test(x))}
+let n=0,skip=0;
+rows.slice(start).forEach(r=>{
+let e=ei>-1&&re.test(r[ei]||'')?ei:r.findIndex(x=>re.test(x));
+if(e<0){skip++;return}
+const em=r[e].toLowerCase();
+if(S.subs.some(s=>s.e.toLowerCase()===em)){skip++;return}
+let nm=ni>-1?r[ni]:(start===0?r[e+1]:'');
+let tg=ti>-1?r[ti]:(start===0?r[e+2]:'');
+if(re.test(nm||''))nm='';if(re.test(tg||''))tg='';
 S.subs.push({e:em,n:nm||'there',t:tg||'general'});n++});
-save();render();toast(n+' subscribers imported'+(dup?' ('+dup+' duplicates skipped)':''))}
-$('main').addEventListener('change',e=>{
-if(e.target.id!=='afile')return;
-const f=e.target.files[0];if(!f)return;
-const r=new FileReader();
-r.onload=()=>importCsv(String(r.result));
-r.onerror=()=>toast('Could not read that file');
-r.readAsText(f)});
-let rng=null,palMode=null,phone=false;
-const FCOL=['#000000','#444444','#888888','#c0392b','#e67e22','#f1c40f','#27ae60','#1c6e8c','#2980b9','#8e44ad','#e84393','#ffffff'];
-const HCOL=['#fff3b0','#ffd9a8','#fcd5d5','#d4f5d0','#cde7f7','#e8d5f5','#f8d7e8','#e0e0e0'];
-const STATE_CMDS=['bold','italic','underline','insertUnorderedList','justifyLeft','justifyCenter','justifyRight'];
-function updateTb(){document.querySelectorAll('.tb [data-fmt]').forEach(b=>{const c=b.dataset.fmt;if(!STATE_CMDS.includes(c))return;let on=false;try{on=document.queryCommandState(c)}catch(e){}b.classList.toggle('on',on)})}
-document.addEventListener('selectionchange',()=>{const ed=$('cb'),s=getSelection();if(ed&&s.rangeCount&&ed.contains(s.anchorNode)){rng=s.getRangeAt(0).cloneRange();updateTb()}});
-function hidePal(){palMode=null;const p=$('pal');if(p)p.style.display='none'}
-function showPal(mode){
-const p=$('pal');if(!p)return;
-if(palMode===mode){hidePal();return}
-palMode=mode;
-const cols=mode==='foreColor'?FCOL:HCOL;
-p.innerHTML=cols.map(c=>`<button type="button" class="sw" data-color="${c}" style="background:${c}" title="${c}"></button>`).join('')+`<button type="button" class="sw" data-color="${mode==='foreColor'?'#222222':'transparent'}" title="Remove color">&#10005;</button><label class="sw cust" title="Pick any color">+<input type="color" id="ccol" value="#1c6e8c"></label>`;
-p.style.display='flex'}
-function fmt(cmd,val){
-const ed=$('cb');if(!ed)return;
-let url,txt;
-if(cmd==='link'){
-url=prompt('Paste the link (for example https://yourwebsite.com)');if(!url)return;
-url=url.trim();if(!/^(https?:|mailto:)/i.test(url))url='https://'+url;
-if(!rng||rng.collapsed){txt=prompt('Text to show for the link');if(!txt)return}}
-ed.focus();
-if(rng){const s=getSelection();s.removeAllRanges();s.addRange(rng)}
-document.execCommand('styleWithCSS',false,true);
-if(cmd==='link'){
-if(txt)document.execCommand('insertHTML',false,`<a href="${esc(url)}">${esc(txt)}</a>`);
-else document.execCommand('createLink',false,url)}
-else document.execCommand(cmd,false,val||null);
-readDraft();pv();updateTb()}
-$('main').addEventListener('mousedown',e=>{if(e.target.closest('.tb button'))e.preventDefault()});
-$('main').addEventListener('click',e=>{
-const sw=e.target.closest('.sw[data-color]');
-if(sw){fmt(palMode,sw.dataset.color);hidePal();return}
-const b=e.target.closest('.tb [data-fmt]');
-if(b){const c=b.dataset.fmt;if(c==='forePal')showPal('foreColor');else if(c==='hilitePal')showPal('hiliteColor');else fmt(c,b.dataset.val);return}
-const t=e.target.closest('[data-tpl]');
-if(t){const ed=$('cb');readDraft();
-if(ed&&ed.innerText.trim()&&!confirm('Replace your current email text with this template?'))return;
-Object.assign(draft,TPL[t.dataset.tpl]);render();return}
-const dv=e.target.closest('[data-dev]');
-if(dv){phone=dv.dataset.dev==='phone';const p=$('pv');if(p)p.classList.toggle('phone',phone);
-document.querySelectorAll('[data-dev]').forEach(x=>x.classList.toggle('on',x===dv))}
-});
-$('main').addEventListener('change',e=>{
-if(e.target.id==='ffont'&&e.target.value){fmt('fontName',e.target.value);e.target.value=''}
-if(e.target.id==='fsize'&&e.target.value){fmt('fontSize',e.target.value);e.target.value=''}
-if(e.target.id==='ccol'&&palMode){fmt(palMode,e.target.value);hidePal()}});
-$('main').addEventListener('paste',e=>{if(e.target.id==='cb'){e.preventDefault();document.execCommand('insertText',false,(e.clipboardData||window.clipboardData).getData('text/plain'))}});
+save();render();toast(n+' imported'+(skip?', '+skip+' skipped (no valid email or already added)':''))}
+function readDraft(){if(view!=='comp')return;draft.name=$('cn').value;draft.subject=$('cs').value;draft.seg=$('cg').value;draft.body=$('cb').value}
+$('main').addEventListener('input',e=>{if(view==='comp'&&e.target.id!=='tpl'){readDraft();pv()}});
+$('main').addEventListener('change',async e=>{
+if(e.target.id==='afile'){const f=e.target.files[0];if(!f)return;
+try{importCsv(await f.text())}catch(err){toast('Could not read that file')}return}
+if(e.target.id==='tpl'&&TPL[e.target.value]){readDraft();Object.assign(draft,TPL[e.target.value]);render()}else if(view==='comp'){readDraft();pv()}});
 const nid=()=>Math.max(0,...S.camps.map(c=>c.id))+1;
 let PW='';const getPw=()=>PW||(PW=prompt('Admin password')||'');
 $('main').addEventListener('click',async e=>{
