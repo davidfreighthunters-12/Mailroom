@@ -40,6 +40,8 @@ label{display:block;font-size:13px;color:var(--mute);margin:10px 0 4px}
 .toast{position:fixed;bottom:calc(20px + env(safe-area-inset-bottom,0px));left:50%;transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:10px 18px;border-radius:8px;font-weight:500;display:none;z-index:9}
 .empty{color:var(--mute);padding:18px 0;text-align:center}
 @media(max-width:760px){.app{grid-template-columns:1fr}nav{position:static;height:auto;display:flex;gap:4px;overflow-x:auto;padding:10px;border-right:0;border-bottom:1px solid var(--line)}nav .logo{padding:8px 10px}nav button{width:auto;white-space:nowrap}nav button.on{box-shadow:inset 0 -3px 0 var(--acc)}main{padding:20px 16px}.g2{grid-template-columns:1fr}}
+.tb{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:6px}
+.swr{display:flex;gap:6px;flex-wrap:wrap;align-items:center}.sw{width:26px;height:26px;border-radius:50%;border:2px solid var(--line);cursor:pointer;padding:0}.sw:hover{transform:scale(1.15)}.swr input[type=color]{width:34px;height:28px;padding:0;border:0;background:none}
 </style>
 </head>
 <body>
@@ -60,10 +62,19 @@ const $=id=>document.getElementById(id);
 const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 function toast(m){const t=$('toast');t.textContent=m;t.style.display='block';clearTimeout(toast.h);toast.h=setTimeout(()=>t.style.display='none',2200)}
 const TPL={
-newsletter:{subject:'This month at {{company}}',body:'<h3>Hi {{name}},</h3>\n<p>Here is what we shipped this month and what is coming next.</p>\n<ul><li>Feature one</li><li>Feature two</li></ul>\n<p><a class="cta" href="#">Read the full update</a></p>'},
-promo:{subject:'{{name}}, 20% off until Friday',body:'<h3>A little thank-you, {{name}}</h3>\n<p>Use code <b>THANKS20</b> at checkout for 20% off your next order.</p>\n<p><a class="cta" href="#">Shop now</a></p>'},
-welcome:{subject:'Welcome aboard, {{name}}',body:'<h3>Welcome, {{name}}!</h3>\n<p>Thanks for signing up. Here is how to get started in three minutes.</p>\n<p><a class="cta" href="#">Start here</a></p>'}};
-let draft={name:'',subject:TPL.newsletter.subject,pre:'',seg:'all',body:TPL.newsletter.body};
+blank:{subject:'',text:''},
+newsletter:{subject:"This month's update",text:'Hi {{name}},\n\nHere is what we shipped this month and what is coming next.\n\n[Read the full update](https://example.com)'},
+promo:{subject:'{{name}}, 20% off until Friday',text:'A little thank-you, {{name}}.\n\nUse code **THANKS20** at checkout for 20% off your next order.\n\n[Shop now](https://example.com)'},
+welcome:{subject:'Welcome aboard, {{name}}',text:'Welcome, {{name}}!\n\nThanks for signing up. Here is how to get started in three minutes.\n\n[Start here](https://example.com)'}};
+const FONTS={Arial:'Arial,Helvetica,sans-serif',Georgia:'Georgia,serif',Verdana:'Verdana,Geneva,sans-serif',Tahoma:'Tahoma,Geneva,sans-serif','Trebuchet MS':'Trebuchet MS,Helvetica,sans-serif','Times New Roman':'Times New Roman,Times,serif','Courier New':'Courier New,monospace'};
+const PAL=['#17212b','#111111','#ffffff','#f2f5f7','#fdf6e3','#1c6e8c','#2f8f5b','#c0392b','#8e44ad','#e3a72f','#e67e22','#2c3e50'];
+const newDraft=()=>({name:'',subject:'',seg:'all',text:'',font:'Arial',size:'16',color:'#17212b',link:'#1c6e8c',bg:'#ffffff',btn:false});
+let draft=newDraft(),mob=false;
+function buildHtml(d){
+const L=d.btn?`display:inline-block;background:${d.link};color:#fff;padding:10px 18px;border-radius:6px;text-decoration:none;font-weight:600`:`color:${d.link};text-decoration:underline`;
+const b=esc(d.text.replace(/\r/g,'')).replace(/\*\*(.+?)\*\*/g,'<b>$1</b>').replace(/\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)/g,`<a href="$2" style="${L}">$1</a>`);
+const ps=b.split(/\n{2,}/).map(p=>p.trim()).filter(Boolean).map(p=>`<p style="margin:0 0 16px">${p.replace(/\n/g,'<br>')}</p>`).join('');
+return `<div style="background:${d.bg};padding:24px"><div style="max-width:600px;margin:0 auto;font-family:${FONTS[d.font]};font-size:${d.size}px;line-height:1.6;color:${d.color}">${ps}</div></div>`}
 let view='dash';
 const tabs=[['dash','Overview'],['camps','Campaigns'],['comp','New campaign'],['aud','Audience']];
 $('nav').insertAdjacentHTML('beforeend',tabs.map(([k,l])=>`<button data-k="${k}">${l}</button>`).join(''));
@@ -82,17 +93,24 @@ return `<h1>Overview</h1><p class="sub">How your email is performing.</p>
 function camps(){
 return `<div class="row" style="align-items:center"><div><h1>Campaigns</h1><p class="sub">Drafts and sent emails.</p></div><button class="btn" data-a="new">New campaign</button></div>
 <div class="card scroll">${S.camps.length?`<table><tr><th>Name</th><th>Audience</th><th>Status</th><th>Opens</th><th>Clicks</th><th></th></tr>${S.camps.slice().reverse().map(c=>`<tr><td><b>${esc(c.name)}</b><br><span style="color:var(--mute)">${esc(c.subject)}</span></td><td>${esc(c.seg)}</td><td><span class="pill ${c.status}">${c.status}</span></td><td>${c.status==='sent'?pct(c.opens,c.sent):'–'}</td><td>${c.status==='sent'?pct(c.clicks,c.sent):'–'}</td><td><button class="btn ghost sm" data-a="del" data-id="${c.id}">Delete</button></td></tr>`).join('')}</table>`:'<div class="empty">No campaigns yet. Create one to get started.</div>'}</div>`}
+function sw(k,l){return `<label>${l}</label><div class="swr">${PAL.map(c=>`<button type="button" class="sw" data-a="col" data-k="${k}" data-v="${c}" style="background:${c}" title="${c}"></button>`).join('')}<input type="color" id="k-${k}" value="${draft[k]}" title="Pick any color"></div>`}
 function comp(){
 const d=draft;
-return `<h1>New campaign</h1><p class="sub">Write, preview, then send. Use {{name}} to personalize.</p>
+return `<h1>New campaign</h1><p class="sub">Type plain text, add links with the Link button, and watch the preview.</p>
 <div class="grid g2"><div class="card">
-<label>Start from a template</label><select id="tpl"><option value="">Choose…</option><option value="newsletter">Newsletter</option><option value="promo">Promotion</option><option value="welcome">Welcome</option></select>
+<label>Start from a template</label><select id="tpl"><option value="">Choose…</option><option value="blank">Blank (empty)</option><option value="newsletter">Newsletter</option><option value="promo">Promotion</option><option value="welcome">Welcome</option></select>
 <label>Campaign name</label><input id="cn" value="${esc(d.name)}" placeholder="September newsletter">
-<label>Subject line</label><input id="cs" value="${esc(d.subject)}">
+<label>Subject line <span id="cc" style="float:right"></span></label><input id="cs" value="${esc(d.subject)}">
 <label>Send to</label><select id="cg">${segs().map(s=>`<option value="${esc(s)}" ${s===d.seg?'selected':''}>${s==='all'?'Everyone':esc(s)} (${segCount(s)})</option>`).join('')}</select>
-<label>Email body (HTML)</label><textarea id="cb">${esc(d.body)}</textarea>
-<div class="row" style="margin-top:14px"><button class="btn ghost" data-a="save">Save draft</button><button class="btn" data-a="send">Send campaign</button></div>
-</div><div><h2>Preview</h2><div class="prev" id="pv"></div></div></div>`}
+<label>Message (blank line = new paragraph)</label>
+<div class="tb"><button type="button" class="btn ghost sm" data-a="bold">Bold</button><button type="button" class="btn ghost sm" data-a="link">Link</button><button type="button" class="btn ghost sm" data-a="nm">Insert name</button></div>
+<textarea id="cb" placeholder="Hi {{name}},&#10;&#10;Write your message here.">${esc(d.text)}</textarea>
+<h2 style="margin-top:18px">Style</h2>
+<div class="row"><div><label>Font</label><select id="cf">${Object.keys(FONTS).map(f=>`<option ${f===d.font?'selected':''}>${f}</option>`).join('')}</select></div><div><label>Text size</label><select id="cz">${[14,16,18,20].map(z=>`<option ${String(z)===String(d.size)?'selected':''}>${z}</option>`).join('')}</select></div></div>
+${sw('color','Text color')}${sw('link','Link color')}${sw('bg','Background color')}
+<label style="display:flex;gap:8px;align-items:center;margin-top:14px"><input id="cbtn" type="checkbox" style="width:auto" ${d.btn?'checked':''}> Show links as buttons</label>
+<div class="row" style="margin-top:14px"><button class="btn ghost" data-a="save">Save draft</button><button class="btn ghost" data-a="test">Send test</button><button class="btn" data-a="send">Send campaign</button></div>
+</div><div><div class="row" style="align-items:center;margin-bottom:8px"><h2 style="margin:0">Preview</h2><div class="tb" style="margin:0;flex:none"><button type="button" class="btn ghost sm" data-a="dev" data-v="d">Desktop</button><button type="button" class="btn ghost sm" data-a="dev" data-v="m">Mobile</button></div></div><div class="prev" id="pv"></div></div></div>`}
 function aud(){
 return `<h1>Audience</h1><p class="sub">${S.subs.length} subscribers.</p>
 <div class="card"><h2>Add subscribers</h2><div class="row"><div><label>Email</label><input id="ae" type="email" placeholder="name@example.com"></div><div><label>First name</label><input id="an"></div><div><label>Tag</label><input id="at" placeholder="customers"></div><button class="btn" data-a="add">Add</button></div>
@@ -101,7 +119,9 @@ return `<h1>Audience</h1><p class="sub">${S.subs.length} subscribers.</p>
 <div class="card scroll" style="margin-top:14px">${S.subs.length?`<table><tr><th>Email</th><th>Name</th><th>Tag</th><th></th></tr>${S.subs.map((s,i)=>`<tr><td>${esc(s.e)}</td><td>${esc(s.n)}</td><td><span class="tag">${esc(s.t)}</span></td><td><button class="btn ghost sm" data-a="rm" data-id="${i}">Remove</button></td></tr>`).join('')}</table>`:'<div class="empty">No subscribers yet. Add one above.</div>'}</div>`}
 function pv(){
 const el=$('pv');if(!el)return;const s=S.subs.find(x=>draft.seg==='all'||x.t===draft.seg);
-el.innerHTML=`<div class="hd"><b>Subject:</b> ${esc(merge(draft.subject,s))}<br>To: ${s?esc(s.e):'preview@example.com'}</div><div class="bd">${merge(draft.body,s).replace(/<script[\s\S]*?<\/script>/gi,'')}</div>`}
+el.style.maxWidth=mob?'360px':'none';el.style.margin=mob?'0 auto':'0';
+const cc=$('cc');if(cc)cc.textContent=draft.subject.length+' characters';
+el.innerHTML=`<div class="hd"><b>Subject:</b> ${esc(merge(draft.subject,s)||'(no subject)')}<br>To: ${s?esc(s.e):'preview@example.com'}</div>${merge(buildHtml(draft),s&&{n:esc(s.n)})}`}
 function render(){
 [...$('nav').querySelectorAll('button')].forEach(b=>b.classList.toggle('on',b.dataset.k===view));
 $('main').innerHTML={dash,camps,comp,aud}[view]();
@@ -141,7 +161,7 @@ let tg=ti>-1?r[ti]:(start===0?r[e+2]:'');
 if(re.test(nm||''))nm='';if(re.test(tg||''))tg='';
 S.subs.push({e:em,n:nm||'there',t:tg||'general'});n++});
 save();render();toast(n+' imported'+(skip?', '+skip+' skipped (no valid email or already added)':''))}
-function readDraft(){if(view!=='comp')return;draft.name=$('cn').value;draft.subject=$('cs').value;draft.seg=$('cg').value;draft.body=$('cb').value}
+function readDraft(){if(view!=='comp')return;const g=i=>$(i).value;draft.name=g('cn');draft.subject=g('cs');draft.seg=g('cg');draft.text=g('cb');draft.font=g('cf');draft.size=g('cz');draft.color=g('k-color');draft.link=g('k-link');draft.bg=g('k-bg');draft.btn=$('cbtn').checked}
 $('main').addEventListener('input',e=>{if(view==='comp'&&e.target.id!=='tpl'){readDraft();pv()}});
 $('main').addEventListener('change',async e=>{
 if(e.target.id==='afile'){const f=e.target.files[0];if(!f)return;
@@ -149,6 +169,10 @@ try{importCsv(await f.text())}catch(err){toast('Could not read that file')}retur
 if(e.target.id==='tpl'&&TPL[e.target.value]){readDraft();Object.assign(draft,TPL[e.target.value]);render()}else if(view==='comp'){readDraft();pv()}});
 const nid=()=>Math.max(0,...S.camps.map(c=>c.id))+1;
 let PW='';const getPw=()=>PW||(PW=prompt('Admin password')||'');
+async function api(rec){const pw=getPw();if(!pw)return false;toast('Sending…');
+try{const r=await fetch('/api/send',{method:'POST',headers:{'Content-Type':'application/json','x-admin-password':pw},body:JSON.stringify({subject:draft.subject,html:buildHtml(draft),recipients:rec})});
+const j=await r.json();if(!r.ok){PW='';toast(j.error||'Send failed');return false}return true}
+catch(err){toast('Could not reach the server');return false}}
 $('main').addEventListener('click',async e=>{
 const a=e.target.dataset.a;if(!a)return;const id=+e.target.dataset.id;
 if(a==='new'){view='comp';render()}
@@ -158,20 +182,24 @@ if(a==='add'){const em=$('ae').value.trim();if(!/^\S+@\S+\.\S+$/.test(em))return
 if(S.subs.some(s=>s.e===em))return toast('That email is already subscribed');
 S.subs.push({e:em,n:$('an').value.trim()||'there',t:$('at').value.trim()||'general'});save();render();toast('Subscriber added')}
 if(a==='csv')importCsv($('acsv').value);
-if(a==='save'||a==='send'){readDraft();
+if(['bold','link','nm'].includes(a)){const t=$('cb'),x=t.selectionStart,y=t.selectionEnd,sel=t.value.slice(x,y);let r;
+if(a==='bold')r='**'+(sel||'bold text')+'**';
+else if(a==='nm')r='{{name}}';
+else{const u=(prompt('Link address, e.g. https://example.com','https://')||'').trim();if(!u)return;r='['+(prompt('Text to show for the link',sel||'Click here')||u)+']('+u+')'}
+t.setRangeText(r,x,y,'end');t.focus();readDraft();pv();return}
+if(a==='col'){const k=e.target.dataset.k;draft[k]=e.target.dataset.v;$('k-'+k).value=e.target.dataset.v;pv();return}
+if(a==='dev'){mob=e.target.dataset.v==='m';pv();return}
+if(a==='save'||a==='send'||a==='test'){readDraft();
+if(a!=='save'&&(!draft.subject.trim()||!draft.text.trim()))return toast('Add a subject line and a message first');
+if(a==='test'){const em=(prompt('Send a test to which email address?')||'').trim();if(!/^\S+@\S+\.\S+$/.test(em))return toast('Enter a valid email address');
+if(await api([{email:em,name:'there'}]))toast('Test sent to '+em);return}
 if(!draft.name.trim()||!draft.subject.trim())return toast('Add a campaign name and subject line');
 const cnt=segCount(draft.seg);
 if(a==='send'&&!cnt)return toast('This audience has no subscribers');
-if(a==='send'){const pw=getPw();if(!pw)return;
-const rec=S.subs.filter(s=>draft.seg==='all'||s.t===draft.seg).map(s=>({email:s.e,name:s.n}));
-toast('Sending…');
-try{const r=await fetch('/api/send',{method:'POST',headers:{'Content-Type':'application/json','x-admin-password':pw},body:JSON.stringify({subject:draft.subject,html:draft.body,recipients:rec})});
-const j=await r.json();if(!r.ok){PW='';return toast(j.error||'Send failed')}}
-catch(err){return toast('Could not reach the server')}}
+if(a==='send'&&!await api(S.subs.filter(s=>draft.seg==='all'||s.t===draft.seg).map(s=>({email:s.e,name:s.n}))))return;
 const c={id:nid(),name:draft.name,subject:draft.subject,seg:draft.seg,status:a==='send'?'sent':'draft',sent:0,opens:0,clicks:0,date:new Date().toISOString().slice(0,10)};
 if(a==='send'){c.sent=cnt}
-S.camps.push(c);save();
-draft={name:'',subject:TPL.newsletter.subject,pre:'',seg:'all',body:TPL.newsletter.body};
+S.camps.push(c);save();draft=newDraft();
 view='camps';render();toast(a==='send'?'Sent to '+cnt+' subscribers':'Draft saved')}
 });
 render();
