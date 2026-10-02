@@ -52,12 +52,22 @@ label{display:block;font-size:13px;color:var(--mute);margin:10px 0 4px}
 <div class="toast" id="toast"></div>
 <script>
 const KEY='mailroom:v1';
-const seed={subs:[
-{e:'amina@example.com',n:'Amina',t:'customers'},{e:'bilal@example.com',n:'Bilal',t:'leads'},
-{e:'sara@example.com',n:'Sara',t:'customers'},{e:'omar@example.com',n:'Omar',t:'leads'}],
-camps:[{id:1,name:'Welcome series #1',subject:'Welcome aboard, {{name}}',seg:'all',status:'sent',sent:4,opens:3,clicks:1,date:'2026-09-20'}]};
+const seed={subs:[],camps:[]};
 let S;try{S=JSON.parse(localStorage.getItem(KEY))||seed}catch(e){S=seed}
-const save=()=>{try{localStorage.setItem(KEY,JSON.stringify(S))}catch(e){}};
+let PW='',ready=false,pt;try{PW=sessionStorage.getItem('mr-pw')||''}catch(e){}
+const getPw=()=>{if(!PW){PW=prompt('Admin password')||'';if(PW)try{sessionStorage.setItem('mr-pw',PW)}catch(e){}}return PW};
+const clrPw=()=>{PW='';try{sessionStorage.removeItem('mr-pw')}catch(e){}};
+const save=()=>{try{localStorage.setItem(KEY,JSON.stringify(S))}catch(e){}if(ready){clearTimeout(pt);pt=setTimeout(push,700)}};
+async function push(){try{const r=await fetch('/api/data',{method:'PUT',headers:{'Content-Type':'application/json','x-admin-password':PW},body:JSON.stringify(S)});if(!r.ok)throw 0}catch(e){toast('Could not save to the database. Your changes are only in this browser.')}}
+async function init(){
+for(let t=0;t<3;t++){const pw=getPw();if(!pw)return toast('Password needed to load your saved list. Reload to try again.');
+try{const r=await fetch('/api/data',{headers:{'x-admin-password':pw}});
+if(r.status===401){clrPw();toast('Wrong password');continue}
+const j=await r.json();
+if(!r.ok)return toast((j.error||'Database error')+'. Using this browser\'s copy.');
+if(j.empty){ready=true;if(S.subs.length||S.camps.length)await push()}
+else{S={subs:j.subs||[],camps:j.camps||[]};try{localStorage.setItem(KEY,JSON.stringify(S))}catch(e){}ready=true;render()}
+return}catch(e){return toast('Could not reach the database. Using this browser\'s copy.')}}}
 const $=id=>document.getElementById(id);
 const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 function toast(m){const t=$('toast');t.textContent=m;t.style.display='block';clearTimeout(toast.h);toast.h=setTimeout(()=>t.style.display='none',2200)}
@@ -93,7 +103,7 @@ return `<h1>Overview</h1><p class="sub">How your email is performing.</p>
 <div class="card" style="margin-top:14px"><h2>Opens per campaign</h2>${sent.length?`<svg viewBox="0 0 460 132" width="100%" style="max-width:520px">${bars}</svg>`:'<div class="empty">Send your first campaign to see results.</div>'}</div>`}
 function camps(){
 return `<div class="row" style="align-items:center"><div><h1>Campaigns</h1><p class="sub">Drafts and sent emails.</p></div><button class="btn" data-a="new">New campaign</button></div>
-<div class="card scroll">${S.camps.length?`<table><tr><th>Name</th><th>Audience</th><th>Status</th><th>Opens</th><th>Clicks</th><th></th></tr>${S.camps.slice().reverse().map(c=>`<tr><td><b>${esc(c.name)}</b><br><span style="color:var(--mute)">${esc(c.subject)}</span></td><td>${esc(c.seg)}</td><td><span class="pill ${c.status}">${c.status}</span></td><td>${c.status==='sent'?pct(c.opens,c.sent):'–'}</td><td>${c.status==='sent'?pct(c.clicks,c.sent):'–'}</td><td><button class="btn ghost sm" data-a="del" data-id="${c.id}">Delete</button></td></tr>`).join('')}</table>`:'<div class="empty">No campaigns yet. Create one to get started.</div>'}</div>`}
+<div class="card scroll">${S.camps.length?`<table><tr><th>Name</th><th>Audience</th><th>Status</th><th>Opens</th><th>Clicks</th><th></th></tr>${S.camps.slice().reverse().map(c=>`<tr><td><b>${esc(c.name)}</b><br><span style="color:var(--mute)">${esc(c.subject)}</span></td><td>${esc(c.seg)}</td><td><span class="pill ${c.status}">${c.status}</span></td><td>${c.status==='sent'?pct(c.opens,c.sent):'–'}</td><td>${c.status==='sent'?pct(c.clicks,c.sent):'–'}</td><td>${c.msg?`<button class="btn ghost sm" data-a="open" data-id="${c.id}">Open</button> `:''}<button class="btn ghost sm" data-a="del" data-id="${c.id}">Delete</button></td></tr>`).join('')}</table>`:'<div class="empty">No campaigns yet. Create one to get started.</div>'}</div>`}
 function sw(k,l){return `<label>${l}</label><div class="swr">${PAL.map(c=>`<button type="button" class="sw" data-a="col" data-k="${k}" data-v="${c}" style="background:${c}" title="${c}"></button>`).join('')}<input type="color" id="k-${k}" value="${draft[k]}" title="Pick any color"></div>`}
 function comp(){
 const d=draft;
@@ -175,14 +185,14 @@ $('main').addEventListener('change',e=>{const t=e.target;
 if(t.id==='selall'){sel.clear();document.querySelectorAll('.rc').forEach(c=>{c.checked=t.checked;if(t.checked)sel.add(+c.dataset.i)});selUi()}
 else if(t.classList&&t.classList.contains('rc')){t.checked?sel.add(+t.dataset.i):sel.delete(+t.dataset.i);selUi()}});
 const nid=()=>Math.max(0,...S.camps.map(c=>c.id))+1;
-let PW='';const getPw=()=>PW||(PW=prompt('Admin password')||'');
 async function api(rec){const pw=getPw();if(!pw)return false;toast('Sending…');
 try{const r=await fetch('/api/send',{method:'POST',headers:{'Content-Type':'application/json','x-admin-password':pw},body:JSON.stringify({subject:draft.subject,html:buildHtml(draft),recipients:rec})});
-const j=await r.json();if(!r.ok){PW='';toast(j.error||'Send failed');return false}return true}
+const j=await r.json();if(!r.ok){if(r.status===401)clrPw();toast(j.error||'Send failed');return false}return true}
 catch(err){toast('Could not reach the server');return false}}
 $('main').addEventListener('click',async e=>{
 const a=e.target.dataset.a;if(!a)return;const id=+e.target.dataset.id;
 if(a==='new'){view='comp';render()}
+if(a==='open'){const c=S.camps.find(x=>x.id===id);if(c&&c.msg){draft=Object.assign(newDraft(),c.msg,{name:c.name+' (copy)',subject:c.subject,seg:c.seg});view='comp';render()}}
 if(a==='del'){S.camps=S.camps.filter(c=>c.id!==id);save();render()}
 if(a==='rm'){S.subs.splice(id,1);sel.clear();save();render()}
 if(a==='add'){const em=$('ae').value.trim();if(!/^\S+@\S+\.\S+$/.test(em))return toast('Enter a valid email address');
@@ -207,12 +217,12 @@ if(!draft.name.trim()||!draft.subject.trim())return toast('Add a campaign name a
 const cnt=segCount(draft.seg);
 if(a==='send'&&!cnt)return toast('This audience has no subscribers');
 if(a==='send'&&!await api(S.subs.filter(s=>draft.seg==='all'||s.t===draft.seg).map(s=>({email:s.e,name:s.n}))))return;
-const c={id:nid(),name:draft.name,subject:draft.subject,seg:draft.seg,status:a==='send'?'sent':'draft',sent:0,opens:0,clicks:0,date:new Date().toISOString().slice(0,10)};
+const c={id:nid(),name:draft.name,subject:draft.subject,seg:draft.seg,status:a==='send'?'sent':'draft',sent:0,opens:0,clicks:0,date:new Date().toISOString().slice(0,10),msg:{text:draft.text,font:draft.font,size:draft.size,color:draft.color,link:draft.link,bg:draft.bg,btn:draft.btn}};
 if(a==='send'){c.sent=cnt}
 S.camps.push(c);save();draft=newDraft();
 view='camps';render();toast(a==='send'?'Sent to '+cnt+' subscribers':'Draft saved')}
 });
-render();
+render();init();
 </script>
 </body>
 </html>
