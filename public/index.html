@@ -67,7 +67,7 @@ const j=await r.json();
 if(!r.ok)return toast((j.error||'Database error')+'. Using this browser\'s copy.');
 if(j.empty){ready=true;if(S.subs.length||S.camps.length)await push()}
 else{S={subs:j.subs||[],camps:j.camps||[]};try{localStorage.setItem(KEY,JSON.stringify(S))}catch(e){}ready=true;render()}
-return}catch(e){return toast('Could not reach the database. Using this browser\'s copy.')}}}
+loadStats();return}catch(e){return toast('Could not reach the database. Using this browser\'s copy.')}}}
 const $=id=>document.getElementById(id);
 const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 function toast(m){const t=$('toast');t.textContent=m;t.style.display='block';clearTimeout(toast.h);toast.h=setTimeout(()=>t.style.display='none',2200)}
@@ -89,21 +89,25 @@ return `<div style="background:${d.bg};padding:24px"><div style="max-width:600px
 let view='dash';
 const tabs=[['dash','Overview'],['camps','Campaigns'],['comp','New campaign'],['aud','Audience']];
 $('nav').insertAdjacentHTML('beforeend',tabs.map(([k,l])=>`<button data-k="${k}">${l}</button>`).join(''));
-$('nav').onclick=e=>{const k=e.target.dataset.k;if(k){view=k;render()}};
+$('nav').onclick=e=>{const k=e.target.dataset.k;if(k){view=k;render();if(k==='dash'||k==='camps')loadStats()}};
 const segs=()=>['all',...new Set(S.subs.map(s=>s.t))];
 const segCount=s=>s==='all'?S.subs.length:S.subs.filter(x=>x.t===s).length;
 const merge=(t,s)=>t.replace(/{{\s*name\s*}}/g,s?s.n:'there').replace(/{{\s*company\s*}}/g,'Your Company');
-const pct=(a,b)=>a&&b?Math.round(a/b*100)+'%':'–';
+const pct=(a,b)=>b?Math.round(a/b*100)+'%':'–';
+let ST={};
+const cs=c=>ST[c.id]||{opens:c.opens||0,clicks:c.clicks||0};
+async function loadStats(){const ids=S.camps.filter(c=>c.status==='sent').map(c=>c.id);if(!ready||!ids.length)return;
+try{const r=await fetch('/api/track?ids='+ids.join(','),{headers:{'x-admin-password':PW}});if(r.ok){ST=await r.json();if(view==='dash'||view==='camps')render()}}catch(e){}}
 function dash(){
-const sent=S.camps.filter(c=>c.status==='sent'),tot=sent.reduce((a,c)=>a+c.sent,0),op=sent.reduce((a,c)=>a+c.opens,0),cl=sent.reduce((a,c)=>a+c.clicks,0);
+const sent=S.camps.filter(c=>c.status==='sent'),tot=sent.reduce((a,c)=>a+c.sent,0),op=sent.reduce((a,c)=>a+cs(c).opens,0),cl=sent.reduce((a,c)=>a+cs(c).clicks,0);
 const max=Math.max(1,...sent.map(c=>c.sent));
-const bars=sent.slice(-6).map((c,i)=>{const h=c.opens/max*90,x=20+i*70;return `<rect x="${x}" y="${110-h}" width="44" height="${h}" fill="var(--acc)" rx="3"/><text x="${x+22}" y="126" text-anchor="middle" font-size="10" fill="var(--mute)">${esc(c.name.slice(0,9))}</text>`}).join('');
+const bars=sent.slice(-6).map((c,i)=>{const h=cs(c).opens/max*90,x=20+i*70;return `<rect x="${x}" y="${110-h}" width="44" height="${h}" fill="var(--acc)" rx="3"/><text x="${x+22}" y="126" text-anchor="middle" font-size="10" fill="var(--mute)">${esc(c.name.slice(0,9))}</text>`}).join('');
 return `<h1>Overview</h1><p class="sub">How your email is performing.</p>
 <div class="grid g4"><div class="card stat"><b>${S.subs.length}</b><span>Subscribers</span></div><div class="card stat"><b>${sent.length}</b><span>Campaigns sent</span></div><div class="card stat"><b>${pct(op,tot)}</b><span>Open rate</span></div><div class="card stat"><b>${pct(cl,tot)}</b><span>Click rate</span></div></div>
 <div class="card" style="margin-top:14px"><h2>Opens per campaign</h2>${sent.length?`<svg viewBox="0 0 460 132" width="100%" style="max-width:520px">${bars}</svg>`:'<div class="empty">Send your first campaign to see results.</div>'}</div>`}
 function camps(){
 return `<div class="row" style="align-items:center"><div><h1>Campaigns</h1><p class="sub">Drafts and sent emails.</p></div><button class="btn" data-a="new">New campaign</button></div>
-<div class="card scroll">${S.camps.length?`<table><tr><th>Name</th><th>Audience</th><th>Status</th><th>Opens</th><th>Clicks</th><th></th></tr>${S.camps.slice().reverse().map(c=>`<tr><td><b>${esc(c.name)}</b><br><span style="color:var(--mute)">${esc(c.subject)}</span></td><td>${esc(c.seg)}</td><td><span class="pill ${c.status}">${c.status}</span></td><td>${c.status==='sent'?pct(c.opens,c.sent):'–'}</td><td>${c.status==='sent'?pct(c.clicks,c.sent):'–'}</td><td>${c.msg?`<button class="btn ghost sm" data-a="open" data-id="${c.id}">Open</button> `:''}<button class="btn ghost sm" data-a="del" data-id="${c.id}">Delete</button></td></tr>`).join('')}</table>`:'<div class="empty">No campaigns yet. Create one to get started.</div>'}</div>`}
+<div class="card scroll">${S.camps.length?`<table><tr><th>Name</th><th>Audience</th><th>Status</th><th>Opens</th><th>Clicks</th><th></th></tr>${S.camps.slice().reverse().map(c=>`<tr><td><b>${esc(c.name)}</b><br><span style="color:var(--mute)">${esc(c.subject)}</span></td><td>${esc(c.seg)}</td><td><span class="pill ${c.status}">${c.status}</span></td><td>${c.status==='sent'?pct(cs(c).opens,c.sent):'–'}</td><td>${c.status==='sent'?pct(cs(c).clicks,c.sent):'–'}</td><td>${c.msg?`<button class="btn ghost sm" data-a="open" data-id="${c.id}">Open</button> `:''}<button class="btn ghost sm" data-a="del" data-id="${c.id}">Delete</button></td></tr>`).join('')}</table>`:'<div class="empty">No campaigns yet. Create one to get started.</div>'}</div>`}
 function sw(k,l){return `<label>${l}</label><div class="swr">${PAL.map(c=>`<button type="button" class="sw" data-a="col" data-k="${k}" data-v="${c}" style="background:${c}" title="${c}"></button>`).join('')}<input type="color" id="k-${k}" value="${draft[k]}" title="Pick any color"></div>`}
 function comp(){
 const d=draft;
@@ -185,8 +189,8 @@ $('main').addEventListener('change',e=>{const t=e.target;
 if(t.id==='selall'){sel.clear();document.querySelectorAll('.rc').forEach(c=>{c.checked=t.checked;if(t.checked)sel.add(+c.dataset.i)});selUi()}
 else if(t.classList&&t.classList.contains('rc')){t.checked?sel.add(+t.dataset.i):sel.delete(+t.dataset.i);selUi()}});
 const nid=()=>Math.max(0,...S.camps.map(c=>c.id))+1;
-async function api(rec){const pw=getPw();if(!pw)return false;toast('Sending…');
-try{const r=await fetch('/api/send',{method:'POST',headers:{'Content-Type':'application/json','x-admin-password':pw},body:JSON.stringify({subject:draft.subject,html:buildHtml(draft),recipients:rec})});
+async function api(rec,tag){const pw=getPw();if(!pw)return false;toast('Sending…');
+try{const r=await fetch('/api/send',{method:'POST',headers:{'Content-Type':'application/json','x-admin-password':pw},body:JSON.stringify({subject:draft.subject,html:buildHtml(draft),recipients:rec,tag})});
 const j=await r.json();if(!r.ok){if(r.status===401)clrPw();toast(j.error||'Send failed');return false}return true}
 catch(err){toast('Could not reach the server');return false}}
 $('main').addEventListener('click',async e=>{
@@ -214,10 +218,10 @@ if(a!=='save'&&(!draft.subject.trim()||!draft.text.trim()))return toast('Add a s
 if(a==='test'){const em=(prompt('Send a test to which email address?')||'').trim();if(!/^\S+@\S+\.\S+$/.test(em))return toast('Enter a valid email address');
 if(await api([{email:em,name:'there'}]))toast('Test sent to '+em);return}
 if(!draft.name.trim()||!draft.subject.trim())return toast('Add a campaign name and subject line');
-const cnt=segCount(draft.seg);
+const cnt=segCount(draft.seg),cid=nid();
 if(a==='send'&&!cnt)return toast('This audience has no subscribers');
-if(a==='send'&&!await api(S.subs.filter(s=>draft.seg==='all'||s.t===draft.seg).map(s=>({email:s.e,name:s.n}))))return;
-const c={id:nid(),name:draft.name,subject:draft.subject,seg:draft.seg,status:a==='send'?'sent':'draft',sent:0,opens:0,clicks:0,date:new Date().toISOString().slice(0,10),msg:{text:draft.text,font:draft.font,size:draft.size,color:draft.color,link:draft.link,bg:draft.bg,btn:draft.btn}};
+if(a==='send'&&!await api(S.subs.filter(s=>draft.seg==='all'||s.t===draft.seg).map(s=>({email:s.e,name:s.n})),'mr-'+cid))return;
+const c={id:cid,name:draft.name,subject:draft.subject,seg:draft.seg,status:a==='send'?'sent':'draft',sent:0,opens:0,clicks:0,date:new Date().toISOString().slice(0,10),msg:{text:draft.text,font:draft.font,size:draft.size,color:draft.color,link:draft.link,bg:draft.bg,btn:draft.btn}};
 if(a==='send'){c.sent=cnt}
 S.camps.push(c);save();draft=newDraft();
 view='camps';render();toast(a==='send'?'Sent to '+cnt+' subscribers':'Draft saved')}
