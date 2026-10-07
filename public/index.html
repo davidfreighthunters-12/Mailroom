@@ -67,7 +67,7 @@ const j=await r.json();
 if(!r.ok)return toast((j.error||'Database error')+'. Using this browser\'s copy.');
 if(j.empty){ready=true;if(S.subs.length||S.camps.length)await push()}
 else{S={subs:j.subs||[],camps:j.camps||[]};try{localStorage.setItem(KEY,JSON.stringify(S))}catch(e){}ready=true;render()}
-loadStats();return}catch(e){return toast('Could not reach the database. Using this browser\'s copy.')}}}
+loadStats();loadUnsubs();return}catch(e){return toast('Could not reach the database. Using this browser\'s copy.')}}}
 const $=id=>document.getElementById(id);
 const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 function toast(m){const t=$('toast');t.textContent=m;t.style.display='block';clearTimeout(toast.h);toast.h=setTimeout(()=>t.style.display='none',2200)}
@@ -79,7 +79,7 @@ welcome:{subject:'Welcome aboard, {{name}}',text:'Welcome, {{name}}!\n\nThanks f
 const FONTS={Arial:'Arial,Helvetica,sans-serif',Georgia:'Georgia,serif',Verdana:'Verdana,Geneva,sans-serif',Tahoma:'Tahoma,Geneva,sans-serif','Trebuchet MS':'Trebuchet MS,Helvetica,sans-serif','Times New Roman':'Times New Roman,Times,serif','Courier New':'Courier New,monospace'};
 const PAL=['#17212b','#111111','#ffffff','#f2f5f7','#fdf6e3','#1c6e8c','#2f8f5b','#c0392b','#8e44ad','#e3a72f','#e67e22','#2c3e50'];
 const newDraft=()=>({name:'',subject:'',seg:'all',text:'',font:'Arial',size:'16',color:'#17212b',link:'#1c6e8c',bg:'#ffffff',btn:false,limit:'',cid:null});
-const elig=(seg,cid)=>S.subs.filter(s=>(seg==='all'||s.t===seg)&&!(cid&&(s.sent||[]).includes(cid)));
+const elig=(seg,cid)=>S.subs.filter(s=>(seg==='all'||s.t===seg)&&!isUn(s.e)&&!(cid&&(s.sent||[]).includes(cid)));
 const left=c=>c.b?elig(c.seg,c.id).length:0;
 let draft=newDraft(),mob=false,sel=new Set();
 function selUi(){const n=sel.size,t=S.subs.length,a=$('selall');if(!a)return;a.checked=t>0&&n===t;a.indeterminate=n>0&&n<t;$('selc').textContent=n+' of '+t+' selected';$('dsel').disabled=!n}
@@ -91,12 +91,15 @@ return `<div style="background:${d.bg};padding:24px"><div style="max-width:600px
 let view='dash';
 const tabs=[['dash','Overview'],['camps','Campaigns'],['comp','New campaign'],['aud','Audience']];
 $('nav').insertAdjacentHTML('beforeend',tabs.map(([k,l])=>`<button data-k="${k}">${l}</button>`).join(''));
-$('nav').onclick=e=>{const k=e.target.dataset.k;if(k){view=k;render();if(k==='dash'||k==='camps')loadStats()}};
+$('nav').onclick=e=>{const k=e.target.dataset.k;if(k){view=k;render();if(k==='dash'||k==='camps')loadStats();if(k==='aud'||k==='camps'||k==='comp')loadUnsubs()}};
 const segs=()=>['all',...new Set(S.subs.map(s=>s.t))];
 const segCount=s=>s==='all'?S.subs.length:S.subs.filter(x=>x.t===s).length;
 const merge=(t,s)=>t.replace(/{{\s*name\s*}}/g,s?s.n:'there').replace(/{{\s*company\s*}}/g,'Your Company');
 const pct=(a,b)=>b?Math.round(a/b*100)+'%':'–';
-let ST={};
+let ST={},UN=new Set();
+const isUn=e=>UN.has(String(e).toLowerCase());
+async function loadUnsubs(){if(!ready)return;
+try{const r=await fetch('/api/unsubscribe?list=1',{headers:{'x-admin-password':PW}});if(r.ok){const j=await r.json();UN=new Set((j.emails||[]).map(x=>x.toLowerCase()));if(view==='aud'||view==='camps')render();else if(view==='comp')pv()}}catch(e){}}
 const cs=c=>ST[c.id]||{opens:c.opens||0,clicks:c.clicks||0};
 async function loadStats(){const ids=S.camps.filter(c=>c.status==='sent').map(c=>c.id);if(!ready||!ids.length)return;
 try{const r=await fetch('/api/track?ids='+ids.join(','),{headers:{'x-admin-password':PW}});if(r.ok){ST=await r.json();if(view==='dash'||view==='camps')render()}}catch(e){}}
@@ -130,11 +133,11 @@ ${sw('color','Text color')}${sw('link','Link color')}${sw('bg','Background color
 <div class="row" style="margin-top:14px">${d.cid?'':'<button class="btn ghost" data-a="save">Save draft</button>'}<button class="btn ghost" data-a="test">Send test</button><button class="btn" data-a="send">Send campaign</button></div>
 </div><div><div class="row" style="align-items:center;margin-bottom:8px"><h2 style="margin:0">Preview</h2><div class="tb" style="margin:0;flex:none"><button type="button" class="btn ghost sm" data-a="dev" data-v="d">Desktop</button><button type="button" class="btn ghost sm" data-a="dev" data-v="m">Mobile</button></div></div><div class="prev" id="pv"></div></div></div>`}
 function aud(){
-return `<h1>Audience</h1><p class="sub">${S.subs.length} subscribers.</p>
+return `<h1>Audience</h1><p class="sub">${S.subs.length} subscribers${(()=>{const n=S.subs.filter(s=>isUn(s.e)).length;return n?', '+n+' unsubscribed (skipped when sending)':''})()}.</p>
 <div class="card"><h2>Add subscribers</h2><div class="row"><div><label>Email</label><input id="ae" type="email" placeholder="name@example.com"></div><div><label>First name</label><input id="an"></div><div><label>Tag</label><input id="at" placeholder="customers"></div><button class="btn" data-a="add">Add</button></div>
 <label>Upload any .csv file (needs an email column)</label><input id="afile" type="file" accept=".csv,.txt,text/csv,text/plain">
 <label>Or paste a CSV (email,name,tag – one per line)</label><textarea id="acsv" style="min-height:70px" placeholder="jo@example.com,Jo,leads"></textarea><button class="btn ghost" style="margin-top:8px" data-a="csv">Import CSV</button></div>
-<div class="card scroll" style="margin-top:14px">${S.subs.length?`<div class="row" style="align-items:center;margin-bottom:10px"><b id="selc">0 selected</b><button class="btn ghost sm" id="dsel" data-a="delsel">Delete selected</button><button class="btn ghost sm" data-a="fixcase">Fix name capitals</button><button class="btn ghost sm" data-a="delall">Delete all</button></div><table><tr><th style="width:36px"><input type="checkbox" id="selall" style="width:auto" title="Select all"></th><th style="width:44px">#</th><th>Email</th><th>Name</th><th>Tag</th><th></th></tr>${S.subs.map((s,i)=>`<tr><td><input type="checkbox" class="rc" data-i="${i}" style="width:auto" ${sel.has(i)?'checked':''}></td><td style="color:var(--mute)">${i+1}</td><td>${esc(s.e)}</td><td>${esc(s.n)}</td><td><span class="tag">${esc(s.t)}</span></td><td><button class="btn ghost sm" data-a="rm" data-id="${i}">Remove</button></td></tr>`).join('')}</table>`:'<div class="empty">No subscribers yet. Add one above.</div>'}</div>`}
+<div class="card scroll" style="margin-top:14px">${S.subs.length?`<div class="row" style="align-items:center;margin-bottom:10px"><b id="selc">0 selected</b><button class="btn ghost sm" id="dsel" data-a="delsel">Delete selected</button><button class="btn ghost sm" data-a="rmun">Remove unsubscribed</button><button class="btn ghost sm" data-a="fixcase">Fix name capitals</button><button class="btn ghost sm" data-a="delall">Delete all</button></div><table><tr><th style="width:36px"><input type="checkbox" id="selall" style="width:auto" title="Select all"></th><th style="width:44px">#</th><th>Email</th><th>Name</th><th>Tag</th><th></th></tr>${S.subs.map((s,i)=>`<tr><td><input type="checkbox" class="rc" data-i="${i}" style="width:auto" ${sel.has(i)?'checked':''}></td><td style="color:var(--mute)">${i+1}</td><td>${esc(s.e)}</td><td>${esc(s.n)}</td><td><span class="tag">${esc(s.t)}</span>${isUn(s.e)?' <span class="pill draft">unsubscribed</span>':''}</td><td><button class="btn ghost sm" data-a="rm" data-id="${i}">Remove</button></td></tr>`).join('')}</table>`:'<div class="empty">No subscribers yet. Add one above.</div>'}</div>`}
 function pv(){
 const el=$('pv');if(!el)return;const s=S.subs.find(x=>draft.seg==='all'||x.t===draft.seg);
 el.style.maxWidth=mob?'360px':'none';el.style.margin=mob?'0 auto':'0';
@@ -177,12 +180,12 @@ rows.slice(start).forEach(r=>{
 let e=ei>-1&&re.test(r[ei]||'')?ei:r.findIndex(x=>re.test(x));
 if(e<0){skip++;return}
 const em=r[e].toLowerCase();
-if(S.subs.some(s=>s.e.toLowerCase()===em)){skip++;return}
+if(S.subs.some(s=>s.e.toLowerCase()===em)||isUn(em)){skip++;return}
 let nm=ni>-1?r[ni]:(start===0?r[e+1]:'');
 let tg=ti>-1?r[ti]:(start===0?r[e+2]:'');
 if(re.test(nm||''))nm='';if(re.test(tg||''))tg='';
 S.subs.push({e:em,n:tcase(nm)||'there',t:tg||'general'});n++});
-save();render();toast(n+' imported'+(skip?', '+skip+' skipped (no valid email or already added)':''))}
+save();render();toast(n+' imported'+(skip?', '+skip+' skipped (no valid email, already added or unsubscribed)':''))}
 function readDraft(){if(view!=='comp')return;const g=i=>$(i).value;draft.name=g('cn');draft.subject=g('cs');draft.seg=g('cg');draft.text=g('cb');draft.limit=g('cl');draft.font=g('cf');draft.size=g('cz');draft.color=g('k-color');draft.link=g('k-link');draft.bg=g('k-bg');draft.btn=$('cbtn').checked}
 $('main').addEventListener('input',e=>{if(view==='comp'&&e.target.id!=='tpl'){readDraft();pv()}});
 $('main').addEventListener('change',async e=>{
@@ -206,8 +209,10 @@ if(a==='del'){S.camps=S.camps.filter(c=>c.id!==id);save();render()}
 if(a==='rm'){S.subs.splice(id,1);sel.clear();save();render()}
 if(a==='add'){const em=$('ae').value.trim();if(!/^\S+@\S+\.\S+$/.test(em))return toast('Enter a valid email address');
 if(S.subs.some(s=>s.e===em))return toast('That email is already subscribed');
+if(isUn(em))return toast('That person unsubscribed earlier, so they were not added');
 S.subs.push({e:em,n:tcase($('an').value.trim())||'there',t:$('at').value.trim()||'general'});save();render();toast('Subscriber added')}
 if(a==='delsel'){const n=sel.size;if(!n||!confirm('Delete '+n+' selected subscriber'+(n>1?'s':'')+'? This cannot be undone.'))return;S.subs=S.subs.filter((_,i)=>!sel.has(i));sel.clear();save();render();toast(n+' deleted')}
+if(a==='rmun'){const n=S.subs.filter(s=>isUn(s.e)).length;if(!n)return toast('Nobody has unsubscribed yet');if(!confirm('Remove '+n+' unsubscribed from your list? They will still never be emailed if added again.'))return;S.subs=S.subs.filter(s=>!isUn(s.e));sel.clear();save();render();toast(n+' removed')}
 if(a==='fixcase'){let n=0;S.subs.forEach(x=>{const f=tcase(x.n);if(f!==x.n){x.n=f;n++}});save();render();toast(n+' names fixed')}
 if(a==='delall'){const n=S.subs.length;if(!n||!confirm('Delete ALL '+n+' subscribers? This cannot be undone.'))return;S.subs=[];sel.clear();save();render();toast('All subscribers deleted')}
 if(a==='csv')importCsv($('acsv').value);
